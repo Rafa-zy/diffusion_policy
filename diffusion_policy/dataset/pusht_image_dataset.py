@@ -18,6 +18,7 @@ class PushTImageDataset(BaseImageDataset):
             pad_after=0,
             seed=42,
             val_ratio=0.0,
+            sample_ratio=None,
             max_train_episodes=None
             ):
         
@@ -28,6 +29,10 @@ class PushTImageDataset(BaseImageDataset):
             n_episodes=self.replay_buffer.n_episodes, 
             val_ratio=val_ratio,
             seed=seed)
+        
+        if sample_ratio is not None:
+            self.replay_buffer.sample(sample_ratio)
+        
         train_mask = ~val_mask
         train_mask = downsample_mask(
             mask=train_mask, 

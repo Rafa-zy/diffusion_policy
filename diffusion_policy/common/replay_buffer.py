@@ -370,7 +370,15 @@ class ReplayBuffer:
     @property
     def episode_ends(self):
         return self.meta['episode_ends']
-    
+
+    @episode_ends.setter
+    def episode_ends(self, new_episode_ends):
+        if self.backend == 'zarr':
+            self.meta['episode_ends'][:] = new_episode_ends
+            self.meta['episode_ends'].resize(new_episode_ends.shape)
+        else:
+            self.root['meta']['episode_ends'] = new_episode_ends
+
     def get_episode_idxs(self):
         import numba
         numba.jit(nopython=True)
@@ -586,3 +594,33 @@ class ReplayBuffer:
                 compressor = self.resolve_compressor(value)
                 if compressor != arr.compressor:
                     rechunk_recompress_array(self.data, key, compressor=compressor)
+
+
+    def sample(self, sample_ratio: float) -> dict:
+        assert 0 < sample_ratio <= 1, "Sample ratio must be in the range (0, 1]."
+        fields = ['img', 'state', 'action']
+        sampled_data = {}
+
+        for field in fields:
+            assert field in self.data, f"Field '{field}' not found in data."
+
+        n_samples = int(self.n_steps * sample_ratio)
+        indices = np.arange(n_samples)
+
+        for field in fields:
+            sampled_data[field] = self.data[field][indices]
+        self.data = sampled_data
+
+        sampled_episode_ends = []
+        for end in self.episode_ends:
+            if end <= n_samples:
+                sampled_episode_ends.append(end)
+            else:
+                break
+
+        if len(sampled_episode_ends) == 0 or sampled_episode_ends[-1] < n_samples:
+            sampled_episode_ends.append(n_samples)
+
+        self.episode_ends = np.array(sampled_episode_ends)
+
+        return sampled_data
