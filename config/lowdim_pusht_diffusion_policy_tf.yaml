@@ -97,7 +97,6 @@ task:
     pad_before: 1
     seed: 42
     val_ratio: 0.02
-    sample_ratio: 0.2
     zarr_path: data/pusht/pusht_cchi_v7_replay.zarr
   env_runner:
     _target_: diffusion_policy.env_runner.pusht_keypoints_runner.PushTKeypointsRunner
