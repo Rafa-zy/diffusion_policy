@@ -31,7 +31,7 @@ class PushTEnv(gym.Env):
 
     def __init__(self,
             legacy=False, 
-            block_cog=None, damping=None,
+            block_cog=None, damping=None, block_shape="vee",
             render_action=True,
             render_size=96,
             reset_to_state=None
@@ -64,6 +64,7 @@ class PushTEnv(gym.Env):
         )
 
         self.block_cog = block_cog
+        self.block_shape = block_shape
         self.damping = damping
         self.render_action = render_action
 
@@ -303,7 +304,16 @@ class PushTEnv(gym.Env):
 
         # Add agent, block, and goal zone.
         self.agent = self.add_circle((256, 400), 15)
-        self.block = self.add_tee((256, 300), 0)
+
+        if self.block_shape == "tee":
+            self.block = self.add_tee((256, 300), 0)
+        elif self.block_shape == "gamma":
+            self.block = self.add_gamma((256, 300), 0)
+        elif self.block_shape == "al":
+            self.block = self.add_al((256, 300), 0)
+        elif self.block_shape == "vee":
+            self.block = self.add_vee((256, 300), 0)
+
         self.goal_color = pygame.Color('LightGreen')
         self.goal_pose = np.array([256,256,np.pi/4])  # x, y, theta (in radians)
 
@@ -352,6 +362,87 @@ class PushTEnv(gym.Env):
                                  ( scale/2, length*scale),
                                  ( scale/2, scale)]
         inertia2 = pymunk.moment_for_poly(mass, vertices=vertices1)
+        body = pymunk.Body(mass, inertia1 + inertia2)
+        shape1 = pymunk.Poly(body, vertices1)
+        shape2 = pymunk.Poly(body, vertices2)
+        shape1.color = pygame.Color(color)
+        shape2.color = pygame.Color(color)
+        shape1.filter = pymunk.ShapeFilter(mask=mask)
+        shape2.filter = pymunk.ShapeFilter(mask=mask)
+        body.center_of_gravity = (shape1.center_of_gravity + shape2.center_of_gravity) / 2
+        body.position = position
+        body.angle = angle
+        body.friction = 1
+        self.space.add(body, shape1, shape2)
+        return body
+    
+    def add_gamma(self, position, angle, scale=30, color='LightSlateGray', mask=pymunk.ShapeFilter.ALL_MASKS()):
+        mass = 1
+        length = 4
+        vertices1 = [(-length*scale/2, scale),
+                                 ( length*scale/2, scale),
+                                 ( length*scale/2, 0),
+                                 (-length*scale/2, 0)]
+        inertia1 = pymunk.moment_for_poly(mass, vertices=vertices1)
+        vertices2 = [(-length*scale/2, scale),
+                                 (-length*scale/2, length*scale),
+                                 ( -length*scale/2+scale, length*scale),
+                                 ( -length*scale/2+scale, scale)]
+        inertia2 = pymunk.moment_for_poly(mass, vertices=vertices2)
+        body = pymunk.Body(mass, inertia1 + inertia2)
+        shape1 = pymunk.Poly(body, vertices1)
+        shape2 = pymunk.Poly(body, vertices2)
+        shape1.color = pygame.Color(color)
+        shape2.color = pygame.Color(color)
+        shape1.filter = pymunk.ShapeFilter(mask=mask)
+        shape2.filter = pymunk.ShapeFilter(mask=mask)
+        body.center_of_gravity = (shape1.center_of_gravity + shape2.center_of_gravity) / 2
+        body.position = position
+        body.angle = angle
+        body.friction = 1
+        self.space.add(body, shape1, shape2)
+        return body
+
+    def add_al(self, position, angle, scale=30, color='LightSlateGray', mask=pymunk.ShapeFilter.ALL_MASKS()):
+        mass = 1
+        length = 4
+        vertices1 = [(-length*scale/2, scale),
+                                 ( length*scale/2, scale),
+                                 ( length*scale/2, 0),
+                                 (-length*scale/2, 0)]
+        inertia1 = pymunk.moment_for_poly(mass, vertices=vertices1)
+        vertices2 = [(-length*scale/4, scale),
+                                 (-length*scale/4, length*scale),
+                                 ( -length*scale/4+scale, length*scale),
+                                 ( -length*scale/4+scale, scale)]
+        inertia2 = pymunk.moment_for_poly(mass, vertices=vertices2)
+        body = pymunk.Body(mass, inertia1 + inertia2)
+        shape1 = pymunk.Poly(body, vertices1)
+        shape2 = pymunk.Poly(body, vertices2)
+        shape1.color = pygame.Color(color)
+        shape2.color = pygame.Color(color)
+        shape1.filter = pymunk.ShapeFilter(mask=mask)
+        shape2.filter = pymunk.ShapeFilter(mask=mask)
+        body.center_of_gravity = (shape1.center_of_gravity + shape2.center_of_gravity) / 2
+        body.position = position
+        body.angle = angle
+        body.friction = 1
+        self.space.add(body, shape1, shape2)
+        return body
+    
+    def add_vee(self, position, angle, scale=30, color='LightSlateGray', mask=pymunk.ShapeFilter.ALL_MASKS()):
+        mass = 1
+        length = 4
+        vertices1 = [(-length*scale/2, length*scale/2),
+                                 ( -length*scale/2, length*scale/2+scale),
+                                 ( 0, scale),
+                                 ( 0, 0)]
+        inertia1 = pymunk.moment_for_poly(mass, vertices=vertices1)
+        vertices2 = [(length*scale/2, length*scale/2),
+                                 ( length*scale/2, length*scale/2+scale),
+                                 ( 0, scale),
+                                 ( 0, 0)]
+        inertia2 = pymunk.moment_for_poly(mass, vertices=vertices2)
         body = pymunk.Body(mass, inertia1 + inertia2)
         shape1 = pymunk.Poly(body, vertices1)
         shape2 = pymunk.Poly(body, vertices2)
