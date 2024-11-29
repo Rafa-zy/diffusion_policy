@@ -22,14 +22,15 @@ class TransformerForDiffusion(ModuleAttrMixin):
             causal_attn: bool=False,
             time_as_cond: bool=True,
             obs_as_cond: bool=False,
-            n_cond_layers: int = 0
+            n_cond_layers: int = 0,
+            decoder_only: bool=True
         ) -> None:
         super().__init__()
 
         # compute number of tokens for main trunk and condition encoder
         if n_obs_steps is None:
             n_obs_steps = horizon
-        
+
         T = horizon
         T_cond = 1
         if not time_as_cond:
@@ -40,9 +41,15 @@ class TransformerForDiffusion(ModuleAttrMixin):
             assert time_as_cond
             T_cond += n_obs_steps
 
+        self.decoder_only = decoder_only
+
         # input embedding stem
+        if self.decoder_only:
+            T_total = T + T_cond
+            self.pos_emb = nn.Parameter(torch.zeros(1, T_total, n_emb))
+        else:
+            self.pos_emb = nn.Parameter(torch.zeros(1, T, n_emb))
         self.input_emb = nn.Linear(input_dim, n_emb)
-        self.pos_emb = nn.Parameter(torch.zeros(1, T, n_emb))
         self.drop = nn.Dropout(p_drop_emb)
 
         # cond encoder
@@ -56,7 +63,7 @@ class TransformerForDiffusion(ModuleAttrMixin):
         self.encoder = None
         self.decoder = None
         encoder_only = False
-        if T_cond > 0:
+        if T_cond > 0 and not self.decoder_only:
             self.cond_pos_emb = nn.Parameter(torch.zeros(1, T_cond, n_emb))
             if n_cond_layers > 0:
                 encoder_layer = nn.TransformerEncoderLayer(
@@ -92,6 +99,21 @@ class TransformerForDiffusion(ModuleAttrMixin):
                 decoder_layer=decoder_layer,
                 num_layers=n_layer
             )
+        elif self.decoder_only:
+            # decoder only using TransformerEncoder with causal mask
+            encoder_layer = nn.TransformerEncoderLayer(
+                d_model=n_emb,
+                nhead=n_head,
+                dim_feedforward=4*n_emb,
+                dropout=p_drop_attn,
+                activation='gelu',
+                batch_first=True,
+                norm_first=True
+            )
+            self.decoder = nn.TransformerEncoder(
+                encoder_layer=encoder_layer,
+                num_layers=n_layer
+            )
         else:
             # encoder only BERT
             encoder_only = True
@@ -112,26 +134,27 @@ class TransformerForDiffusion(ModuleAttrMixin):
 
         # attention mask
         if causal_attn:
-            # causal mask to ensure that attention is only applied to the left in the input sequence
-            # torch.nn.Transformer uses additive mask as opposed to multiplicative mask in minGPT
-            # therefore, the upper triangle should be -inf and others (including diag) should be 0.
-            sz = T
-            mask = (torch.triu(torch.ones(sz, sz)) == 1).transpose(0, 1)
-            mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
-            self.register_buffer("mask", mask)
-            
-            if time_as_cond and obs_as_cond:
-                S = T_cond
-                t, s = torch.meshgrid(
-                    torch.arange(T),
-                    torch.arange(S),
-                    indexing='ij'
-                )
-                mask = t >= (s-1) # add one dimension since time is the first token in cond
-                mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
-                self.register_buffer('memory_mask', mask)
+            if self.decoder_only:
+                self.mask = None  # will be created dynamically in forward
             else:
-                self.memory_mask = None
+                # causal mask to ensure that attention is only applied to the left in the input sequence
+                sz = T
+                mask = (torch.triu(torch.ones(sz, sz)) == 1).transpose(0, 1)
+                mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
+                self.register_buffer("mask", mask)
+                
+                if time_as_cond and obs_as_cond:
+                    S = T_cond
+                    t, s = torch.meshgrid(
+                        torch.arange(T),
+                        torch.arange(S),
+                        indexing='ij'
+                    )
+                    mask = t >= (s-1) # add one dimension since time is the first token in cond
+                    mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
+                    self.register_buffer('memory_mask', mask)
+                else:
+                    self.memory_mask = None
         else:
             self.mask = None
             self.memory_mask = None
@@ -147,6 +170,14 @@ class TransformerForDiffusion(ModuleAttrMixin):
         self.time_as_cond = time_as_cond
         self.obs_as_cond = obs_as_cond
         self.encoder_only = encoder_only
+
+        # set architecture
+        if self.decoder_only:
+            self.architecture = 'decoder_only'
+        elif self.encoder_only:
+            self.architecture = 'encoder_only'
+        else:
+            self.architecture = 'encoder_decoder'
 
         # init
         self.apply(self._init_weights)
@@ -186,7 +217,7 @@ class TransformerForDiffusion(ModuleAttrMixin):
             torch.nn.init.ones_(module.weight)
         elif isinstance(module, TransformerForDiffusion):
             torch.nn.init.normal_(module.pos_emb, mean=0.0, std=0.02)
-            if module.cond_obs_emb is not None:
+            if module.cond_obs_emb is not None and module.cond_pos_emb is not None:
                 torch.nn.init.normal_(module.cond_pos_emb, mean=0.0, std=0.02)
         elif isinstance(module, ignore_types):
             # no param
@@ -291,8 +322,7 @@ class TransformerForDiffusion(ModuleAttrMixin):
 
         # process input
         input_emb = self.input_emb(sample)
-
-        if self.encoder_only:
+        if self.architecture == 'encoder_only':
             # BERT
             token_embeddings = torch.cat([time_emb, input_emb], dim=1)
             t = token_embeddings.shape[1]
@@ -305,7 +335,7 @@ class TransformerForDiffusion(ModuleAttrMixin):
             # (B,T+1,n_emb)
             x = x[:,1:,:]
             # (B,T,n_emb)
-        else:
+        elif self.architecture == 'encoder_decoder':
             # encoder
             cond_embeddings = time_emb
             if self.obs_as_cond:
@@ -336,7 +366,33 @@ class TransformerForDiffusion(ModuleAttrMixin):
                 memory_mask=self.memory_mask
             )
             # (B,T,n_emb)
-        
+        elif self.architecture == 'decoder_only':
+            # decoder only using TransformerEncoder with causal mask
+            cond_embeddings = time_emb
+            if self.obs_as_cond:
+                cond_obs_emb = self.cond_obs_emb(cond)
+                # (B,To,n_emb)
+                cond_embeddings = torch.cat([cond_embeddings, cond_obs_emb], dim=1)
+            tc = cond_embeddings.shape[1]
+
+            token_embeddings = torch.cat([cond_embeddings, input_emb], dim=1)
+            t = token_embeddings.shape[1]
+            position_embeddings = self.pos_emb[
+                :, :t, :
+            ]  # (1, T_total, n_emb)
+            x = self.drop(token_embeddings + position_embeddings)
+            # create causal mask
+            if self.mask is None or self.mask.size(0) != t:
+                mask = torch.triu(torch.ones(t, t)) == 1
+                mask = mask.transpose(0, 1)
+                mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
+                self.mask = mask.to(sample.device)
+            x = self.decoder(x, mask=self.mask)
+            # take only the output corresponding to the input embeddings
+            x = x[:, tc:, :]
+        else:
+            raise ValueError(f"Unknown architecture: {self.architecture}")
+
         # head
         x = self.ln_f(x)
         x = self.head(x)
@@ -361,6 +417,7 @@ def test():
     timestep = torch.tensor(0)
     sample = torch.zeros((4,8,16))
     out = transformer(sample, timestep)
+    print("Test 1 output shape:", out.shape)
     
 
     # GPT with time embedding and obs cond
@@ -380,6 +437,7 @@ def test():
     sample = torch.zeros((4,8,16))
     cond = torch.zeros((4,4,10))
     out = transformer(sample, timestep, cond)
+    print("Test 2 output shape:", out.shape)
 
     # GPT with time embedding and obs cond and encoder
     transformer = TransformerForDiffusion(
@@ -398,6 +456,7 @@ def test():
     sample = torch.zeros((4,8,16))
     cond = torch.zeros((4,4,10))
     out = transformer(sample, timestep, cond)
+    print("Test 3 output shape:", out.shape)
 
     # BERT with time embedding token
     transformer = TransformerForDiffusion(
@@ -415,4 +474,40 @@ def test():
     timestep = torch.tensor(0)
     sample = torch.zeros((4,8,16))
     out = transformer(sample, timestep)
+    print("Test 4 output shape:", out.shape)
 
+    # Decoder-only Transformer with time embedding and obs cond
+    transformer = TransformerForDiffusion(
+        input_dim=16,
+        output_dim=16,
+        horizon=8,
+        n_obs_steps=4,
+        cond_dim=10,
+        causal_attn=True,
+        decoder_only=True
+    )
+    opt = transformer.configure_optimizers()
+    
+    timestep = torch.tensor(0)
+    sample = torch.zeros((4,8,16))
+    cond = torch.zeros((4,4,10))
+    out = transformer(sample, timestep, cond)
+    print("Decoder-only Transformer output shape:", out.shape)
+
+    # Decoder-only Transformer without obs cond
+    transformer = TransformerForDiffusion(
+        input_dim=16,
+        output_dim=16,
+        horizon=8,
+        causal_attn=True,
+        decoder_only=True
+    )
+    opt = transformer.configure_optimizers()
+    
+    timestep = torch.tensor(0)
+    sample = torch.zeros((4,8,16))
+    out = transformer(sample, timestep)
+    print("Decoder-only Transformer output shape without obs cond:", out.shape)
+
+if __name__ == "__main__":
+    test()
