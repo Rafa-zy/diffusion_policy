@@ -28,7 +28,7 @@ logging:
   group: null
   id: null
   mode: online
-  name: 2023.01.16-20.11.42_train_diffusion_transformer_lowdim_pusht_lowdim_20_causal_dec
+  name: 2023.01.16-20.11.42_train_diffusion_transformer_lowdim_pusht_lowdim
   project: diffusion_policy_debug
   resume: true
   tags:
@@ -36,8 +36,8 @@ logging:
   - pusht_lowdim
   - default
 multi_run:
-  run_dir: data/outputs/2023.01.16/20.11.42_train_diffusion_transformer_lowdim_pusht_lowdim_20_causal_dec
-  wandb_name_base: 2023.01.16-20.11.42_train_diffusion_transformer_lowdim_pusht_lowdim_20_causal_dec
+  run_dir: data/outputs/2023.01.16/20.11.42_train_diffusion_transformer_lowdim_pusht_lowdim_largetf
+  wandb_name_base: 2023.01.16-20.11.42_train_diffusion_transformer_lowdim_pusht_lowdim_largetf
 n_action_steps: 8
 n_latency_steps: 0
 n_obs_steps: 2
@@ -62,9 +62,9 @@ policy:
     horizon: 10
     input_dim: 2
     n_cond_layers: 0
-    n_emb: 384
-    n_head: 4
-    n_layer: 8
+    n_emb: 512
+    n_head: 8
+    n_layer: 20
     n_obs_steps: 2
     obs_as_cond: true
     output_dim: 2
@@ -97,7 +97,7 @@ task:
     pad_before: 1
     seed: 42
     val_ratio: 0.02
-    zarr_path: data/sampled_pusht.zarr
+    zarr_path: data/pusht/pusht_cchi_v7_replay.zarr
   env_runner:
     _target_: diffusion_policy.env_runner.pusht_keypoints_runner.PushTKeypointsRunner
     agent_keypoints: false

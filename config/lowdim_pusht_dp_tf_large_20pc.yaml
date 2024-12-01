@@ -62,7 +62,7 @@ policy:
     horizon: 10
     input_dim: 2
     n_cond_layers: 0
-    n_emb: 384
+    n_emb: 256
     n_head: 4
     n_layer: 8
     n_obs_steps: 2
