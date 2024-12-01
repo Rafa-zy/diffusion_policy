@@ -367,7 +367,7 @@ class TransformerForDiffusion(ModuleAttrMixin):
             )
             # (B,T,n_emb)
         elif self.architecture == 'decoder_only':
-            # decoder only using TransformerEncoder with causal mask
+            # decoder only using TransformerEncoder with custom mask
             cond_embeddings = time_emb
             if self.obs_as_cond:
                 cond_obs_emb = self.cond_obs_emb(cond)
@@ -381,12 +381,23 @@ class TransformerForDiffusion(ModuleAttrMixin):
                 :, :t, :
             ]  # (1, T_total, n_emb)
             x = self.drop(token_embeddings + position_embeddings)
-            # create causal mask
+            # create custom mask
             if self.mask is None or self.mask.size(0) != t:
-                mask = torch.triu(torch.ones(t, t)) == 1
-                mask = mask.transpose(0, 1)
-                mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
+                # Create a mask of shape (t, t)
+                # For positions 0 to tc-1 (cond embeddings), no masking (bidirectional attention)
+                # For positions tc to t-1 (input embeddings), causal masking
+                mask = torch.zeros(t, t, dtype=torch.float32)
+                # Positions tc to t-1 can attend to positions 0 to i (inclusive)
+                # So for positions i from tc to t-1, mask out positions j > i
+                causal_mask = torch.triu(torch.ones(t - tc, t - tc), diagonal=1)
+                causal_mask = causal_mask.float().masked_fill(causal_mask == 1, float('-inf'))
+                mask[tc:, tc:] = causal_mask
                 self.mask = mask.to(sample.device)
+            # if self.mask is None or self.mask.size(0) != t:
+            #     mask = torch.triu(torch.ones(t, t)) == 1
+            #     mask = mask.transpose(0, 1)
+            #     mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
+            #     self.mask = mask.to(sample.device)
             x = self.decoder(x, mask=self.mask)
             # take only the output corresponding to the input embeddings
             x = x[:, tc:, :]

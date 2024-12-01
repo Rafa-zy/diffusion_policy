@@ -1,4 +1,4 @@
-_target_: diffusion_policy.workspace.train_diffusion_transformer_lowdim_workspace.TrainDiffusionTransformerLowdimWorkspace
+_target_: diffusion_policy.workspace.train_diffusion_unet_lowdim_workspace.TrainDiffusionUnetLowdimWorkspace
 action_dim: 2
 checkpoint:
   save_last_ckpt: true
@@ -10,7 +10,7 @@ checkpoint:
     monitor_key: test_mean_score
 dataloader:
   batch_size: 256
-  num_workers: 16
+  num_workers: 1
   persistent_workers: false
   pin_memory: true
   shuffle: true
@@ -22,55 +22,56 @@ ema:
   power: 0.75
   update_after_step: 0
 exp_name: default
-horizon: 10
+horizon: 16
+keypoint_dim: 2
 keypoint_visible_rate: 1.0
 logging:
   group: null
   id: null
   mode: online
-  name: 2023.01.16-20.11.42_train_diffusion_transformer_lowdim_pusht_lowdim_20_causal_dec
+  name: 2023.01.16-20.10.02_train_diffusion_unet_lowdim_pusht_lowdim
   project: diffusion_policy_debug
   resume: true
   tags:
-  - train_diffusion_transformer_lowdim
+  - train_diffusion_unet_lowdim
   - pusht_lowdim
   - default
 multi_run:
-  run_dir: data/outputs/2023.01.16/20.11.42_train_diffusion_transformer_lowdim_pusht_lowdim_20_causal_dec
-  wandb_name_base: 2023.01.16-20.11.42_train_diffusion_transformer_lowdim_pusht_lowdim_20_causal_dec
+  run_dir: data/outputs/2023.01.16/20.10.02_train_diffusion_unet_lowdim_pusht_lowdim
+  wandb_name_base: 2023.01.16-20.10.02_train_diffusion_unet_lowdim_pusht_lowdim
 n_action_steps: 8
 n_latency_steps: 0
 n_obs_steps: 2
-name: train_diffusion_transformer_lowdim
-obs_as_cond: true
+name: train_diffusion_unet_lowdim
+obs_as_global_cond: false
+obs_as_local_cond: false
 obs_dim: 20
 optimizer:
+  _target_: torch.optim.AdamW
   betas:
-  - 0.9
   - 0.95
-  learning_rate: 0.0001
-  weight_decay: 0.001
+  - 0.999
+  eps: 1.0e-08
+  lr: 0.0001
+  weight_decay: 1.0e-06
 past_action_visible: false
 policy:
-  _target_: diffusion_policy.policy.diffusion_transformer_lowdim_policy.DiffusionTransformerLowdimPolicy
+  _target_: diffusion_policy.policy.diffusion_unet_lowdim_policy.DiffusionUnetLowdimPolicy
   action_dim: 2
-  horizon: 10
+  horizon: 16
   model:
-    _target_: diffusion_policy.model.diffusion.transformer_for_diffusion.TransformerForDiffusion
-    causal_attn: true
-    cond_dim: 20
-    horizon: 10
-    input_dim: 2
-    n_cond_layers: 0
-    n_emb: 384
-    n_head: 4
-    n_layer: 8
-    n_obs_steps: 2
-    obs_as_cond: true
-    output_dim: 2
-    p_drop_attn: 0.3
-    p_drop_emb: 0.0
-    time_as_cond: true
+    _target_: diffusion_policy.model.diffusion.conditional_unet1d.ConditionalUnet1D
+    cond_predict_scale: true
+    diffusion_step_embed_dim: 256
+    down_dims:
+    - 256
+    - 512
+    - 1024
+    global_cond_dim: null
+    input_dim: 22
+    kernel_size: 5
+    local_cond_dim: null
+    n_groups: 8
   n_action_steps: 8
   n_obs_steps: 2
   noise_scheduler:
@@ -83,7 +84,9 @@ policy:
     prediction_type: epsilon
     variance_type: fixed_small
   num_inference_steps: 100
-  obs_as_cond: true
+  oa_step_convention: true
+  obs_as_global_cond: false
+  obs_as_local_cond: false
   obs_dim: 20
   pred_action_steps_only: false
 pred_action_steps_only: false
@@ -91,13 +94,13 @@ task:
   action_dim: 2
   dataset:
     _target_: diffusion_policy.dataset.pusht_dataset.PushTLowdimDataset
-    horizon: 10
+    horizon: 16
     max_train_episodes: 90
     pad_after: 7
     pad_before: 1
     seed: 42
     val_ratio: 0.02
-    zarr_path: data/sampled_pusht.zarr
+    zarr_path: data/pusht/pusht_cchi_v7_replay.zarr
   env_runner:
     _target_: diffusion_policy.env_runner.pusht_keypoints_runner.PushTKeypointsRunner
     agent_keypoints: false
@@ -126,10 +129,10 @@ training:
   device: cuda:0
   gradient_accumulate_every: 1
   lr_scheduler: cosine
-  lr_warmup_steps: 1000
+  lr_warmup_steps: 500
   max_train_steps: null
   max_val_steps: null
-  num_epochs: 2000
+  num_epochs: 5000
   resume: true
   rollout_every: 50
   sample_every: 5
