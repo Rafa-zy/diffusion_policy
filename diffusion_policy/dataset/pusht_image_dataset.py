@@ -9,6 +9,8 @@ from diffusion_policy.common.sampler import (
 from diffusion_policy.model.common.normalizer import LinearNormalizer
 from diffusion_policy.dataset.base_dataset import BaseImageDataset
 from diffusion_policy.common.normalize_util import get_image_range_normalizer
+from .transforms import _build_transform_train
+from PIL import Image
 
 class PushTImageDataset(BaseImageDataset):
     def __init__(self,
@@ -49,6 +51,7 @@ class PushTImageDataset(BaseImageDataset):
         self.horizon = horizon
         self.pad_before = pad_before
         self.pad_after = pad_after
+        self.image_augmentation = _build_transform_train(None, ['imagenet_policy'], (96, 96), None) 
 
     def get_validation_dataset(self):
         val_set = copy.copy(self)
@@ -77,7 +80,19 @@ class PushTImageDataset(BaseImageDataset):
 
     def _sample_to_data(self, sample):
         agent_pos = sample['state'][:,:2].astype(np.float32) # (agent_posx2, block_posex3)
-        image = np.moveaxis(sample['img'],-1,1)/255
+        image = sample['img']
+        # print("image.shape", image.shape) (10, 96, 96, 3)
+        # print("image.dtype", image.dtype) image.dtype float32
+        augmented_images = []
+        for img in image:
+     
+            pil_image = Image.fromarray((img * 255).astype('uint8')) 
+            pil_image = self.image_augmentation(pil_image)
+            augmented_image = np.array(pil_image).astype('float32') / 255.0
+            augmented_images.append(augmented_image)
+    
+        image =np.stack(augmented_images)
+        image = np.moveaxis(image,-1,1)/255
 
         data = {
             'obs': {
