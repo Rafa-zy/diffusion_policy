@@ -137,7 +137,10 @@ class PushTKeypointsRunner(BaseLowdimRunner):
                     env.env.env.block_shape = shape
 
                 env_seeds.append(seed)
-                env_prefixs.append(f'test/{shape_name}_')
+                if shape_name == 'tee':
+                    env_prefixs.append(f'test/')
+                else:
+                    env_prefixs.append(f'test/{shape_name}_')
                 env_init_fn_dills.append(dill.dumps(init_fn))
 
         env = AsyncVectorEnv(env_fns)
