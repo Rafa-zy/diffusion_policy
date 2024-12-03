@@ -262,6 +262,8 @@ class PushTEnv(gym.Env):
         else:
             self.block.angle = rot_block
             self.block.position = pos_block
+        self.block.position = pos_block
+        self.block.angle = rot_block
 
         # Run physics to take effect
         self.space.step(1.0 / self.sim_hz)
