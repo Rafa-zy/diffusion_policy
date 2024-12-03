@@ -23,7 +23,7 @@ class TransformerForDiffusion(ModuleAttrMixin):
             time_as_cond: bool=True,
             obs_as_cond: bool=False,
             n_cond_layers: int = 0,
-            decoder_only: bool=True
+            decoder_only: bool=False
         ) -> None:
         super().__init__()
 
