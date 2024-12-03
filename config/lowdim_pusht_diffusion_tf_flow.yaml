@@ -28,7 +28,7 @@ logging:
   group: null
   id: null
   mode: online
-  name: ddpm_transformer_lowdim_pusht_lowdim_20pc
+  name: flow_transformer_lowdim_pusht_lowdim_20pc
   project: diffusion_policy_debug
   resume: true
   tags:
@@ -36,12 +36,12 @@ logging:
   - pusht_lowdim
   - default
 multi_run:
-  run_dir: data/outputs/ddpm_transformer_lowdim_pusht_lowdim_20pc
-  wandb_name_base: ddpm_transformer_lowdim_pusht_lowdim_20pc
+  run_dir: data/outputs/flow_transformer_lowdim_pusht_lowdim_20pc
+  wandb_name_base: flow_transformer_lowdim_pusht_lowdim_20pc
 n_action_steps: 8
 n_latency_steps: 0
 n_obs_steps: 2
-name: ddpm_lowdim
+name: flow_lowdim
 obs_as_cond: true
 obs_dim: 20
 optimizer:
@@ -74,14 +74,7 @@ policy:
   n_action_steps: 8
   n_obs_steps: 2
   noise_scheduler:
-    _target_: diffusers.schedulers.scheduling_ddpm.DDPMScheduler
-    beta_end: 0.02
-    beta_schedule: squaredcos_cap_v2
-    beta_start: 0.0001
-    clip_sample: true
-    num_train_timesteps: 100
-    prediction_type: epsilon
-    variance_type: fixed_small
+    _target_: diffusers.schedulers.scheduling_flow_match_euler_discrete.FlowMatchEulerDiscreteScheduler
   num_inference_steps: 100
   obs_as_cond: true
   obs_dim: 20
@@ -129,7 +122,7 @@ training:
   lr_warmup_steps: 1000
   max_train_steps: null
   max_val_steps: null
-  num_epochs: 2000
+  num_epochs: 1500
   resume: true
   rollout_every: 50
   sample_every: 5

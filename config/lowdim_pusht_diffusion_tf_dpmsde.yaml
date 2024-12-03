@@ -1,4 +1,5 @@
-_target_: diffusion_policy.workspace.train_diffusion_transformer_hybrid_workspace.TrainDiffusionTransformerHybridWorkspace
+_target_: diffusion_policy.workspace.train_diffusion_transformer_lowdim_workspace.TrainDiffusionTransformerLowdimWorkspace
+action_dim: 2
 checkpoint:
   save_last_ckpt: true
   save_last_snapshot: false
@@ -8,12 +9,11 @@ checkpoint:
     mode: max
     monitor_key: test_mean_score
 dataloader:
-  batch_size: 64
-  num_workers: 8
+  batch_size: 256
+  num_workers: 1
   persistent_workers: false
   pin_memory: true
   shuffle: true
-dataset_obs_steps: 2
 ema:
   _target_: diffusion_policy.model.diffusion.ema_model.EMAModel
   inv_gamma: 1.0
@@ -28,91 +28,67 @@ logging:
   group: null
   id: null
   mode: online
-  name: diffusion_transformer_hybrid_pusht_image_20pc
+  name: dpmsde_transformer_lowdim_pusht_lowdim_20pc
   project: diffusion_policy_debug
   resume: true
   tags:
-  - train_diffusion_transformer_hybrid
-  - pusht_image
+  - train_diffusion_transformer_lowdim
+  - pusht_lowdim
   - default
 multi_run:
-  run_dir: data/outputs/diffusion_transformer_hybrid_pusht_image_20pc
-  wandb_name_base: diffusion_transformer_hybrid_pusht_image_20pc
+  run_dir: data/outputs/dpmsde_transformer_lowdim_pusht_lowdim_20pc
+  wandb_name_base: dpmsde_transformer_lowdim_pusht_lowdim_20pc
 n_action_steps: 8
 n_latency_steps: 0
 n_obs_steps: 2
-name: train_diffusion_transformer_hybrid
+name: dpmsde_lowdim
 obs_as_cond: true
+obs_dim: 20
 optimizer:
   betas:
   - 0.9
   - 0.95
   learning_rate: 0.0001
-  obs_encoder_weight_decay: 1.0e-06
-  transformer_weight_decay: 0.001
+  weight_decay: 0.001
 past_action_visible: false
 policy:
-  _target_: diffusion_policy.policy.diffusion_transformer_hybrid_image_policy.DiffusionTransformerHybridImagePolicy
-  causal_attn: true
-  crop_shape:
-  - 84
-  - 84
-  eval_fixed_crop: true
+  _target_: diffusion_policy.policy.diffusion_transformer_lowdim_policy.DiffusionTransformerLowdimPolicy
+  action_dim: 2
   horizon: 10
+  model:
+    _target_: diffusion_policy.model.diffusion.transformer_for_diffusion.TransformerForDiffusion
+    causal_attn: true
+    cond_dim: 20
+    horizon: 10
+    input_dim: 2
+    n_cond_layers: 0
+    n_emb: 256
+    n_head: 4
+    n_layer: 8
+    n_obs_steps: 2
+    obs_as_cond: true
+    output_dim: 2
+    p_drop_attn: 0.3
+    p_drop_emb: 0.0
+    time_as_cond: true
   n_action_steps: 8
-  n_cond_layers: 0
-  n_emb: 256
-  n_head: 4
-  n_layer: 8
   n_obs_steps: 2
   noise_scheduler:
-    _target_: diffusers.schedulers.scheduling_ddpm.DDPMScheduler
+    _target_: diffusers.schedulers.scheduling_dpmsolver_sde.DPMSolverSDEScheduler
     beta_end: 0.02
     beta_schedule: squaredcos_cap_v2
     beta_start: 0.0001
-    clip_sample: true
     num_train_timesteps: 100
     prediction_type: epsilon
-    variance_type: fixed_small
   num_inference_steps: 100
   obs_as_cond: true
-  obs_encoder_group_norm: true
-  p_drop_attn: 0.3
-  p_drop_emb: 0.0
-  shape_meta:
-    action:
-      shape:
-      - 2
-    obs:
-      agent_pos:
-        shape:
-        - 2
-        type: low_dim
-      image:
-        shape:
-        - 3
-        - 96
-        - 96
-        type: rgb
-  time_as_cond: true
-shape_meta:
-  action:
-    shape:
-    - 2
-  obs:
-    agent_pos:
-      shape:
-      - 2
-      type: low_dim
-    image:
-      shape:
-      - 3
-      - 96
-      - 96
-      type: rgb
+  obs_dim: 20
+  pred_action_steps_only: false
+pred_action_steps_only: false
 task:
+  action_dim: 2
   dataset:
-    _target_: diffusion_policy.dataset.pusht_image_dataset.PushTImageDataset
+    _target_: diffusion_policy.dataset.pusht_dataset.PushTLowdimDataset
     horizon: 10
     max_train_episodes: 90
     pad_after: 7
@@ -121,12 +97,15 @@ task:
     val_ratio: 0.02
     zarr_path: data/pusht/sampled_pusht_v7_replay_20pc.zarr
   env_runner:
-    _target_: diffusion_policy.env_runner.pusht_image_runner.PushTImageRunner
+    _target_: diffusion_policy.env_runner.pusht_keypoints_runner.PushTKeypointsRunner
+    agent_keypoints: false
     fps: 10
+    keypoint_visible_rate: 1.0
     legacy_test: true
     max_steps: 300
     n_action_steps: 8
     n_envs: null
+    n_latency_steps: 0
     n_obs_steps: 2
     n_test: 50
     n_test_vis: 4
@@ -135,27 +114,10 @@ task:
     past_action: false
     test_start_seed: 100000
     train_start_seed: 0
-  image_shape:
-  - 3
-  - 96
-  - 96
-  name: pusht_image
-  shape_meta:
-    action:
-      shape:
-      - 2
-    obs:
-      agent_pos:
-        shape:
-        - 2
-        type: low_dim
-      image:
-        shape:
-        - 3
-        - 96
-        - 96
-        type: rgb
-task_name: pusht_image
+  keypoint_dim: 2
+  name: pusht_lowdim
+  obs_dim: 20
+task_name: pusht_lowdim
 training:
   checkpoint_every: 50
   debug: false
@@ -165,7 +127,7 @@ training:
   lr_warmup_steps: 1000
   max_train_steps: null
   max_val_steps: null
-  num_epochs: 1000
+  num_epochs: 1500
   resume: true
   rollout_every: 50
   sample_every: 5
@@ -174,8 +136,8 @@ training:
   use_ema: true
   val_every: 1
 val_dataloader:
-  batch_size: 64
-  num_workers: 8
+  batch_size: 256
+  num_workers: 1
   persistent_workers: false
   pin_memory: true
   shuffle: false

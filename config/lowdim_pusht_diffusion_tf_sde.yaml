@@ -28,7 +28,7 @@ logging:
   group: null
   id: null
   mode: online
-  name: ddpm_transformer_lowdim_pusht_lowdim_20pc
+  name: 2023.01.16-20.11.42_train_diffusion_transformer_lowdim_pusht_lowdim
   project: diffusion_policy_debug
   resume: true
   tags:
@@ -36,12 +36,12 @@ logging:
   - pusht_lowdim
   - default
 multi_run:
-  run_dir: data/outputs/ddpm_transformer_lowdim_pusht_lowdim_20pc
-  wandb_name_base: ddpm_transformer_lowdim_pusht_lowdim_20pc
+  run_dir: data/outputs/2023.01.16/20.11.42_train_diffusion_transformer_lowdim_pusht_lowdim
+  wandb_name_base: 2023.01.16-20.11.42_train_diffusion_transformer_lowdim_pusht_lowdim
 n_action_steps: 8
 n_latency_steps: 0
 n_obs_steps: 2
-name: ddpm_lowdim
+name: train_diffusion_transformer_lowdim
 obs_as_cond: true
 obs_dim: 20
 optimizer:
@@ -74,14 +74,8 @@ policy:
   n_action_steps: 8
   n_obs_steps: 2
   noise_scheduler:
-    _target_: diffusers.schedulers.scheduling_ddpm.DDPMScheduler
-    beta_end: 0.02
-    beta_schedule: squaredcos_cap_v2
-    beta_start: 0.0001
-    clip_sample: true
+    _target_: diffusers.schedulers.scheduling_sde_ve.ScoreSdeVeScheduler
     num_train_timesteps: 100
-    prediction_type: epsilon
-    variance_type: fixed_small
   num_inference_steps: 100
   obs_as_cond: true
   obs_dim: 20
@@ -97,7 +91,7 @@ task:
     pad_before: 1
     seed: 42
     val_ratio: 0.02
-    zarr_path: data/pusht/sampled_pusht_v7_replay_20pc.zarr
+    zarr_path: data/pusht/pusht_cchi_v7_replay.zarr
   env_runner:
     _target_: diffusion_policy.env_runner.pusht_keypoints_runner.PushTKeypointsRunner
     agent_keypoints: false

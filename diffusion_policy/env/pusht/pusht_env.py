@@ -31,7 +31,7 @@ class PushTEnv(gym.Env):
 
     def __init__(self,
             legacy=False, 
-            block_cog=None, damping=None, block_shape="vee",
+            block_cog=None, damping=None, block_shape="tee",
             render_action=True,
             render_size=96,
             reset_to_state=None

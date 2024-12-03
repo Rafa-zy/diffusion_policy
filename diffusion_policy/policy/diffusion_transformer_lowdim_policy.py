@@ -4,6 +4,13 @@ import torch.nn as nn
 import torch.nn.functional as F
 from einops import rearrange, reduce
 from diffusers.schedulers.scheduling_ddpm import DDPMScheduler
+from diffusers.schedulers.scheduling_ddim import DDIMScheduler
+from diffusers.schedulers.scheduling_sde_ve import ScoreSdeVeScheduler
+from diffusers.schedulers.scheduling_dpmsolver_multistep import DPMSolverMultistepScheduler
+
+from diffusers.schedulers.scheduling_euler_discrete import EulerDiscreteScheduler
+from diffusers.schedulers.scheduling_flow_match_euler_discrete import FlowMatchEulerDiscreteScheduler
+from diffusers.schedulers.scheduling_dpmsolver_sde import DPMSolverSDEScheduler
 
 from diffusion_policy.model.common.normalizer import LinearNormalizer
 from diffusion_policy.policy.base_lowdim_policy import BaseLowdimPolicy
@@ -13,7 +20,7 @@ from diffusion_policy.model.diffusion.mask_generator import LowdimMaskGenerator
 class DiffusionTransformerLowdimPolicy(BaseLowdimPolicy):
     def __init__(self, 
             model: TransformerForDiffusion,
-            noise_scheduler: DDPMScheduler,
+            noise_scheduler,
             horizon, 
             obs_dim, 
             action_dim, 
@@ -78,11 +85,15 @@ class DiffusionTransformerLowdimPolicy(BaseLowdimPolicy):
             model_output = model(trajectory, t, cond)
 
             # 3. compute previous image: x_t -> x_t-1
-            trajectory = scheduler.step(
-                model_output, t, trajectory, 
-                generator=generator,
-                **kwargs
-                ).prev_sample
+            if isinstance(scheduler, ScoreSdeVeScheduler):
+                trajectory = scheduler.step_pred(model_output, trajectory, t, 
+                                            generator=generator, **kwargs).prev_sample
+            else:
+                trajectory = scheduler.step(
+                    model_output, t, trajectory, 
+                    generator=generator,
+                    **kwargs
+                    ).prev_sample
         
         # finally make sure conditioning is enforced
         trajectory[condition_mask] = condition_data[condition_mask]        
@@ -181,6 +192,7 @@ class DiffusionTransformerLowdimPolicy(BaseLowdimPolicy):
         # handle different ways of passing observation
         cond = None
         trajectory = action
+        # print(trajectory.shape)
         if self.obs_as_cond:
             cond = obs[:,:self.n_obs_steps,:]
             if self.pred_action_steps_only:
@@ -190,7 +202,7 @@ class DiffusionTransformerLowdimPolicy(BaseLowdimPolicy):
                 trajectory = action[:,start:end]
         else:
             trajectory = torch.cat([action, obs], dim=-1)
-        
+        # print(trajectory.shape)
         # generate impainting mask
         if self.pred_action_steps_only:
             condition_mask = torch.zeros_like(trajectory, dtype=torch.bool)
@@ -207,9 +219,16 @@ class DiffusionTransformerLowdimPolicy(BaseLowdimPolicy):
         ).long()
         # Add noise to the clean images according to the noise magnitude at each timestep
         # (this is the forward diffusion process)
-        noisy_trajectory = self.noise_scheduler.add_noise(
-            trajectory, noise, timesteps)
-        
+        # print(trajectory.shape)
+        # print(timesteps.shape)
+        if isinstance(self.noise_scheduler, FlowMatchEulerDiscreteScheduler):
+            noisy_trajectory = self.noise_scheduler.scale_noise(
+                trajectory, timesteps, noise)
+        else:
+            noisy_trajectory = self.noise_scheduler.add_noise(
+                trajectory, noise, timesteps)
+        # print(noisy_trajectory.shape)
+        # print(noise.shape)
         # compute loss mask
         loss_mask = ~condition_mask
 
@@ -219,13 +238,17 @@ class DiffusionTransformerLowdimPolicy(BaseLowdimPolicy):
         # Predict the noise residual
         pred = self.model(noisy_trajectory, timesteps, cond)
 
-        pred_type = self.noise_scheduler.config.prediction_type 
-        if pred_type == 'epsilon':
+        # print(self.noise_scheduler)
+        if isinstance(self.noise_scheduler, ScoreSdeVeScheduler):
             target = noise
-        elif pred_type == 'sample':
-            target = trajectory
         else:
-            raise ValueError(f"Unsupported prediction type {pred_type}")
+            pred_type = self.noise_scheduler.config.prediction_type 
+            if pred_type == 'epsilon':
+                target = noise
+            elif pred_type == 'sample':
+                target = trajectory
+            else:
+                raise ValueError(f"Unsupported prediction type {pred_type}")
 
         loss = F.mse_loss(pred, target, reduction='none')
         loss = loss * loss_mask.type(loss.dtype)
