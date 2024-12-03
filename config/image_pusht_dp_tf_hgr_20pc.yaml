@@ -8,7 +8,7 @@ checkpoint:
     mode: max
     monitor_key: test_mean_score
 dataloader:
-  batch_size: 256
+  batch_size: 64
   num_workers: 8
   persistent_workers: false
   pin_memory: true
@@ -28,7 +28,7 @@ logging:
   group: null
   id: null
   mode: online
-  name: 2023.01.16-20.20.50_train_diffusion_transformer_hybrid_pusht_image_20pc_hgr_noaug
+  name: 2023.01.16-20.20.50_train_diffusion_transformer_hybrid_pusht_image_20pc_hgr_bs64_noaug
   project: diffusion_policy_debug
   resume: true
   tags:
@@ -165,9 +165,9 @@ training:
   lr_warmup_steps: 1000
   max_train_steps: null
   max_val_steps: null
-  num_epochs: 1500
+  num_epochs: 500
   resume: true
-  rollout_every: 50
+  rollout_every: 20
   sample_every: 5
   seed: 42
   tqdm_interval_sec: 1.0

@@ -125,10 +125,7 @@ class PushTImageRunner(BaseImageRunner):
                     env.env.env.block_shape = shape
             
                 env_seeds.append(seed)
-                if shape_name == 'tee':
-                    env_prefixs.append('test/')
-                else:
-                    env_prefixs.append(f'test/{shape_name}_')
+                env_prefixs.append(f'test/{shape_name}_')
                 env_init_fn_dills.append(dill.dumps(init_fn))
 
         env = AsyncVectorEnv(env_fns)
@@ -253,9 +250,13 @@ class PushTImageRunner(BaseImageRunner):
                 log_data[prefix+f'sim_video_{seed}'] = sim_video
 
         # log aggregate metrics
+        value_list = []
         for prefix, value in max_rewards.items():
             name = prefix+'mean_score'
-            value = np.mean(value)
-            log_data[name] = value
-
+            if "test/" in prefix:
+                value_list.append(value)
+            mvalue = np.mean(value)
+            log_data[name] = mvalue
+        value_np = np.concatenate(value_list)
+        log_data['test/mean_score'] = np.mean(value_np)
         return log_data

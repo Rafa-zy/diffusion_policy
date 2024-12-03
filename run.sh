@@ -1,4 +1,4 @@
-export CUDA_VISIBLE_DEVICES=2
+export CUDA_VISIBLE_DEVICES=1
 name=diffusion_policy_tf_hgr_20pc   #sampled_20pc
 task_name=pushT
 ## Image training config
