@@ -37,12 +37,13 @@ class PushTKeypointsRunner(BaseLowdimRunner):
             agent_keypoints=False,
             past_action=False,
             tqdm_interval_sec=5.0,
-            n_envs=None
+            n_envs=None,
+            test_shapes=["tee", "gamma", "al", "vee"],
         ):
         super().__init__(output_dir)
 
         if n_envs is None:
-            n_envs = n_train + n_test
+            n_envs = n_train + (n_test * len(test_shapes))
 
         # handle latency step
         # to mimic latency, we request n_latency_steps additional steps 
@@ -112,26 +113,32 @@ class PushTKeypointsRunner(BaseLowdimRunner):
             seed = test_start_seed + i
             enable_render = i < n_test_vis
 
-            def init_fn(env, seed=seed, enable_render=enable_render):
-                # setup rendering
-                # video_wrapper
-                assert isinstance(env.env, VideoRecordingWrapper)
-                env.env.video_recoder.stop()
-                env.env.file_path = None
-                if enable_render:
-                    filename = pathlib.Path(output_dir).joinpath(
-                        'media', wv.util.generate_id() + ".mp4")
-                    filename.parent.mkdir(parents=False, exist_ok=True)
-                    filename = str(filename)
-                    env.env.file_path = filename
+            for shape_name in test_shapes:
 
-                # set seed
-                assert isinstance(env, MultiStepWrapper)
-                env.seed(seed)
+                def init_fn(env, seed=seed, enable_render=enable_render, shape=shape_name):
+                    # setup rendering
+                    # video_wrapper
+                    assert isinstance(env.env, VideoRecordingWrapper)
+                    env.env.video_recoder.stop()
+                    env.env.file_path = None
+                    if enable_render:
+                        filename = pathlib.Path(output_dir).joinpath(
+                            'media', wv.util.generate_id() + ".mp4")
+                        filename.parent.mkdir(parents=False, exist_ok=True)
+                        filename = str(filename)
+                        env.env.file_path = filename
 
-            env_seeds.append(seed)
-            env_prefixs.append('test/')
-            env_init_fn_dills.append(dill.dumps(init_fn))
+                    # set seed
+                    assert isinstance(env, MultiStepWrapper)
+                    env.seed(seed)
+
+                    # set shape
+                    assert isinstance(env.env.env, PushTKeypointsEnv)
+                    env.env.env.block_shape = shape
+
+                env_seeds.append(seed)
+                env_prefixs.append(f'test/{shape_name}_')
+                env_init_fn_dills.append(dill.dumps(init_fn))
 
         env = AsyncVectorEnv(env_fns)
 

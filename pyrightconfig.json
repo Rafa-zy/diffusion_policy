@@ -3,5 +3,7 @@
         "data/**",
         "data_local/**",
         "outputs/**"
-    ]
+    ],
+    "typeCheckingMode": "off",
+    "reportMissingTypeStubs": false,
 }
