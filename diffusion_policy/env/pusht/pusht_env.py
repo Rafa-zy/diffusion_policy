@@ -66,6 +66,7 @@ class PushTEnv(gym.Env):
         self.block_cog = block_cog
         self.damping = damping
         self.render_action = render_action
+        self.last_obs = np.zeros((4, 40))
 
         """
         If human-rendering is used, `self.window` will be a reference
@@ -156,7 +157,8 @@ class PushTEnv(gym.Env):
             tuple(self.agent.position) \
             + tuple(self.block.position) \
             + (self.block.angle % (2 * np.pi),))
-        return obs
+        self.last_obs = np.concatenate([obs] + self.last_obs[:-1], axis=-1)
+        return self.last_obs
 
     def _get_goal_pose_body(self, pose):
         mass = 1

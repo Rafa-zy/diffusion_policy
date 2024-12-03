@@ -67,6 +67,7 @@ class PushTKeypointsEnv(PushTEnv):
             local_keypoint_map=local_keypoint_map,
             color_map=color_map)
         self.draw_kp_map = None
+        self.last_obs = np.zeros(80)
 
     @classmethod
     def genenerate_keypoint_manager_params(cls):
@@ -120,6 +121,8 @@ class PushTKeypointsEnv(PushTEnv):
         obs = np.concatenate([
             obs, obs_mask.astype(obs.dtype)
         ], axis=0)
+
+        self.last_obs = np.concatenate([obs, self.last_obs[:-20]])
         return obs
     
     

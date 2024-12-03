@@ -129,7 +129,7 @@ training:
   lr_warmup_steps: 1000
   max_train_steps: null
   max_val_steps: null
-  num_epochs: 8000
+  num_epochs: 1000
   resume: true
   rollout_every: 50
   sample_every: 5

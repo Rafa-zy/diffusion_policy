@@ -83,6 +83,14 @@ class PushTLowdimDataset(BaseLowdimDataset):
             keypoint.reshape(keypoint.shape[0], -1), 
             agent_pos], axis=-1)
 
+        #velocity = np.diff(agent_pos, axis=0, prepend=agent_pos[:1])
+        #obs_v = np.concatenate([obs, velocity], axis=-1)
+
+        n_history = 3
+        h_states = [np.roll(obs, shift=i+1, axis=0) for i in range(n_history)]
+        self.augmented_obs = np.concatenate([obs] + h_states, axis=-1)
+
+
         data = {
             'obs': obs, # T, D_o
             'action': sample[self.action_key], # T, D_a
