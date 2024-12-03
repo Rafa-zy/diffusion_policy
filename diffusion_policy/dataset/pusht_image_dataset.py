@@ -21,7 +21,8 @@ class PushTImageDataset(BaseImageDataset):
             seed=42,
             val_ratio=0.0,
             sample_ratio=None,
-            max_train_episodes=None
+            max_train_episodes=None,
+            do_augmentation=False
             ):
         
         super().__init__()
@@ -51,6 +52,7 @@ class PushTImageDataset(BaseImageDataset):
         self.horizon = horizon
         self.pad_before = pad_before
         self.pad_after = pad_after
+        self.do_augmentation = do_augmentation
         self.image_augmentation = _build_transform_train(None, ['imagenet_policy'], (96, 96), None) 
 
     def get_validation_dataset(self):
@@ -77,8 +79,24 @@ class PushTImageDataset(BaseImageDataset):
 
     def __len__(self) -> int:
         return len(self.sampler)
-
+    
     def _sample_to_data(self, sample):
+        if self.do_augmentation:
+            return self._sample_to_data_with_aug(sample)
+        
+        agent_pos = sample['state'][:,:2].astype(np.float32) # (agent_posx2, block_posex3)
+        image = np.moveaxis(sample['img'],-1,1)/255
+
+        data = {
+            'obs': {
+                'image': image, # T, 3, 96, 96
+                'agent_pos': agent_pos, # T, 2
+            },
+            'action': sample['action'].astype(np.float32) # T, 2
+        }
+        return data
+
+    def _sample_to_data_with_aug(self, sample):
         agent_pos = sample['state'][:,:2].astype(np.float32) # (agent_posx2, block_posex3)
         image = sample['img']
         # print("image.shape", image.shape) (10, 96, 96, 3)
