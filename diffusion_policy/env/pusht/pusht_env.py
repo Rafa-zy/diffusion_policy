@@ -244,6 +244,9 @@ class PushTEnv(gym.Env):
     def _handle_collision(self, arbiter, space, data):
         self.n_contact_points += len(arbiter.contact_point_set.points)
 
+    def set_block_shape(self, shape):
+        self.block_shape = shape
+        
     def _set_state(self, state):
         if isinstance(state, np.ndarray):
             state = state.tolist()

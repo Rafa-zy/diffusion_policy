@@ -122,7 +122,7 @@ class PushTImageRunner(BaseImageRunner):
 
                     # set shape
                     assert isinstance(env.env.env, PushTImageEnv)
-                    env.env.env.block_shape = shape
+                    env.env.env.set_block_shape(shape)
             
                 env_seeds.append(seed)
                 env_prefixs.append(f'test/{shape_name}_')

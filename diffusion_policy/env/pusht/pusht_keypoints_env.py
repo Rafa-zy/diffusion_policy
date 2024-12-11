@@ -4,6 +4,12 @@ from diffusion_policy.env.pusht.pusht_env import PushTEnv
 from diffusion_policy.env.pusht.pymunk_keypoint_manager import PymunkKeypointManager
 import numpy as np
 
+KP_MANAGER_DICT = {
+    "tee": PymunkKeypointManager.create_from_pusht_env(PushTEnv(), block_shape="tee"),
+    "gamma": PymunkKeypointManager.create_from_pusht_env(PushTEnv(), block_shape="gamma"),
+    "al": PymunkKeypointManager.create_from_pusht_env(PushTEnv(), block_shape="al"),
+    "vee": PymunkKeypointManager.create_from_pusht_env(PushTEnv(), block_shape="vee"),
+}
 class PushTKeypointsEnv(PushTEnv):
     def __init__(self,
             legacy=False,
@@ -63,9 +69,8 @@ class PushTKeypointsEnv(PushTEnv):
         self.keypoint_visible_rate = keypoint_visible_rate
         self.agent_keypoints = agent_keypoints
         self.draw_keypoints = draw_keypoints
-        self.kp_manager = PymunkKeypointManager(
-            local_keypoint_map=local_keypoint_map,
-            color_map=color_map)
+        self.kp_manager = KP_MANAGER_DICT["tee"]
+        
         self.draw_kp_map = None
 
     @classmethod
@@ -74,6 +79,10 @@ class PushTKeypointsEnv(PushTEnv):
         kp_manager = PymunkKeypointManager.create_from_pusht_env(env)
         kp_kwargs = kp_manager.kwargs
         return kp_kwargs
+    
+    def set_block_shape(self, shape):
+        self.block_shape = shape
+        self.kp_manager = KP_MANAGER_DICT[shape]
 
     def _get_obs(self):
         # get keypoints

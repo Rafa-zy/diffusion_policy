@@ -1,1 +1,1 @@
-python hgr_pusht.py -o data/hgr_pusht_1000epoch_base_20.zarr -c /local2/xingcheng/diffusion_policy/data/outputs/2024.11.25/00.19.26_train_diffusion_transformer_lowdim_pusht_lowdim/checkpoints/epoch=1000-test_mean_score=0.845.ckpt -d cuda:0
+python hgr_pusht.py -o data/hgr_pusht_1000epoch_base_20_kpright.zarr -c /local2/xingcheng/diffusion_policy/data/outputs/2024.11.25/00.19.26_train_diffusion_transformer_lowdim_pusht_lowdim/checkpoints/epoch=1000-test_mean_score=0.845.ckpt -d cuda:7

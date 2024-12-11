@@ -94,9 +94,9 @@ def main(output, checkpoint, device, num_trajs_per_shape, reward_thres):
             episode = list()
             # set seed for env
             env.seed(seed)
-            env.block_shape = shape
+            env.set_block_shape(shape)
             menv.seed(seed)
-            menv.env.block_shape = shape
+            menv.env.set_block_shape(shape)
             # reset env and get observations (including info and render for recording)
             obs = env.reset()
             info = env._get_info()
@@ -176,7 +176,7 @@ def main(output, checkpoint, device, num_trajs_per_shape, reward_thres):
 
                 # First transform the initial position of the block
                 env.seed(seed)
-                env.block_shape = shape
+                env.set_block_shape(shape)
                 obs = env.reset()
                 init_info = env._get_info()
                 block_pose = init_info['block_pose']

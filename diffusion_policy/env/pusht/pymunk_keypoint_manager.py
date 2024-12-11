@@ -50,7 +50,7 @@ class PymunkKeypointManager:
         }
 
     @classmethod
-    def create_from_pusht_env(cls, env, n_block_kps=9, n_agent_kps=3, seed=0, **kwargs):
+    def create_from_pusht_env(cls, env, n_block_kps=9, n_agent_kps=3, seed=0, block_shape="tee", **kwargs):
         rng = np.random.default_rng(seed=seed)
         local_keypoint_map = dict()
         for name in ['block','agent']:
@@ -60,7 +60,14 @@ class PymunkKeypointManager:
                 self.agent = obj = self.add_circle((256, 400), 15)
                 n_kps = n_agent_kps
             else:
-                self.block = obj = self.add_tee((256, 300), 0)
+                if block_shape == "tee":
+                    self.block = obj = self.add_tee((256, 300), 0)
+                elif block_shape == "gamma":
+                    self.block = obj = self.add_gamma((256, 300), 0)
+                elif block_shape == "al":
+                    self.block = obj = self.add_al((256, 300), 0)
+                elif block_shape == "vee":
+                    self.block = obj = self.add_vee((256, 300), 0)
                 n_kps = n_block_kps
             
             self.screen = pygame.Surface((512,512))
